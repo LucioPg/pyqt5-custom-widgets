@@ -23,3 +23,5 @@ from .colorpicker       import ColorPreview
 from .animation         import Animation, AnimationHandler
 from .requesthandler    import RequestHandler
 from .syntaxhighlighter import SyntaxHighlighter
+from .toggleswitch import ToggleSwitch
+# from .toggleswitchPlugin import ToggleSwitchPlugin

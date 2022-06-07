@@ -192,8 +192,10 @@ class MainWindow(QWidget):
         self.tglyt.setAlignment(Qt.AlignLeft)
         self.btnlyt2.addLayout(self.tglyt)
 
-        self.tgsw1 = ToggleSwitch(style="ios")
-        self.tgsw2 = ToggleSwitch(style="ios")
+        self.tgsw1 = ToggleSwitch()
+        self.tgsw1.set_style(0)
+        self.tgsw2 = ToggleSwitch()
+        self.tgsw2.set_style(1)
         self.tgsw2.setEnabled(False)
 
         self.tgsw1.setFixedWidth(120)

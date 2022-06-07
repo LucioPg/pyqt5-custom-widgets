@@ -1,40 +1,72 @@
 #                 PyQt5 Custom Widgets                #
 #                GPL 3.0 - Kadir Aksoy                #
 #   https://github.com/kadir014/pyqt5-custom-widgets  #
-
-
-from PyQt5.QtCore    import Qt, QEvent, pyqtSignal
+from PyQt5.QtCore import Qt, QEvent, pyqtSignal, pyqtProperty, pyqtSlot, Q_ENUMS
 from PyQt5.QtWidgets import QWidget, QGraphicsOpacityEffect
-from PyQt5.QtGui     import QColor, QPainter, QPen, QBrush
+from PyQt5.QtGui import QColor, QPainter, QPen, QBrush
+try:
+    from animation import Animation, AnimationHandler
+except ModuleNotFoundError:
+    from .animation import Animation, AnimationHandler
 
-from .animation import Animation, AnimationHandler
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 
 
 
 class ToggleSwitch(QWidget):
+    class StylesEnum:
+        win10 = 0
+        ios = 1
+        android = 2
+        def get_attr_name(self, val):
+            for attr_name, attr_value in filter(lambda attr: not attr[0].startswith('_'), self.__dict__.items()):
+                if val == attr_value:
+                    return attr_name
 
-    defaultStyles = ("win10", "ios", "android")
+
+    Q_ENUMS(StylesEnum)
+    defaultStyles = (StylesEnum.win10, StylesEnum.ios, StylesEnum.android)
 
     toggled = pyqtSignal()
+    styleChanged = pyqtSignal(int)
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
 
-    def __init__(self, text="", style="win10", on=False):
-        super().__init__()
+        self._text = ''
 
-        self.text = text
-
-        self.on = on
+        self._on = False
 
         # TODO: find a better way for opacity
         self.opacity = QGraphicsOpacityEffect(self)
         self.opacity.setOpacity(1)
         self.setGraphicsEffect(self.opacity)
+        self._default_style = self.StylesEnum.ios #self.StylesEnum.win10
+        self._style = self.reset_style()
+        self._apply_style(self._style)
 
-        if style not in ToggleSwitch.defaultStyles:
-            raise Exception(f"'{style}' is not a default style.")
-        self.style = style
 
 
-        if self.style == "win10":
+        # self.setMinimumSize(self.width + (self.radius*2) + (len(self._text)*10), self.radius+2)
+
+        self.anim = AnimationHandler(self, 0, self.width, Animation.easeOutCirc)
+        if self._on: self.anim.value = 1
+
+
+
+
+
+
+    @property
+    def default_style(self):
+        return self._default_style
+
+    @default_style.setter
+    def default_style(self, style):
+        return
+
+    def _apply_style(self, style):
+        if style  == self.StylesEnum.win10:
             self.onColor  = QColor(0, 116, 208)
             self.offColor = QColor(0, 0, 0)
 
@@ -44,7 +76,7 @@ class ToggleSwitch(QWidget):
             self.width = 35
             self.radius = 26
 
-        elif self.style == "ios":
+        elif style  == self.StylesEnum.ios:
             self.onColor  = QColor(73, 208, 96)
             self.offColor = QColor(250, 250, 250)
 
@@ -54,7 +86,7 @@ class ToggleSwitch(QWidget):
             self.width = 21
             self.radius = 29
 
-        elif self.style == "android":
+        elif style  == self.StylesEnum.android:
             self.onColor  = QColor(0, 150, 136)
             self.offColor = QColor(255, 255, 255)
 
@@ -63,17 +95,41 @@ class ToggleSwitch(QWidget):
 
             self.width = 35
             self.radius = 26
+        self.setMinimumSize(self.width + (self.radius * 2) + (len(self._text) * 10), self.radius + 2)
 
-        self.setMinimumSize(self.width + (self.radius*2) + (len(self.text)*10), self.radius+2)
 
-        self.anim = AnimationHandler(self, 0, self.width, Animation.easeOutCirc)
-        if self.on: self.anim.value = 1
+    def get_style(self):
+        return self._style
+
+    @pyqtSlot(str)
+    def set_style(self, style:StylesEnum):
+        if style == self._style:
+            return
+        if style not in ToggleSwitch.defaultStyles:
+            raise Exception(f"'{style}' is not a default style.")
+        self._apply_style(style)
+        self._style = style
+        self.styleChanged.emit(style)
+
+    def reset_style(self):
+        self._style = self.default_style
+        return self.default_style
+
+
+    # @pyqtSlot(str)
+    # def set_style(self, style):
+    #     self._style = style
+    #
+
+
+    style = pyqtProperty(StylesEnum, get_style, set_style, reset_style)
+
 
     def __repr__(self):
         return f"<pyqt5Custom.ToggleSwitch(isToggled={self.isToggled()})>"
 
     def isToggled(self):
-        return self.on
+        return self._on
 
     def desaturate(self, color):
         cc = getattr(self, color)
@@ -99,11 +155,11 @@ class ToggleSwitch(QWidget):
 
     def mousePressEvent(self, event):
         if self.isEnabled():
-            if self.on:
-                self.on = False
+            if self._on:
+                self._on = False
                 self.anim.start(reverse=True)
             else:
-                self.on = True
+                self._on = True
                 self.anim.start()
             self.update()
 
@@ -132,9 +188,9 @@ class ToggleSwitch(QWidget):
         pt.begin(self)
         pt.setRenderHint(QPainter.Antialiasing)
 
-        if self.style == "win10":
+        if self._style  == self.StylesEnum.win10:
 
-            if self.on:
+            if self._on:
                 pen = QPen(self.onColor, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
                 pt.setPen(pen)
                 brush = QBrush(self.onColor)
@@ -170,9 +226,9 @@ class ToggleSwitch(QWidget):
                 offset = r*0.4
                 pt.drawEllipse(r+offset/2+self.anim.current() , offset/2+1 , r-offset , r-offset)
 
-        elif self.style == "ios":
+        elif self._style  == self.StylesEnum.ios:
 
-            if self.on:
+            if self._on:
                 pen = QPen(self.onColor, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
                 pt.setPen(pen)
                 brush = QBrush(self.onColor)
@@ -211,9 +267,9 @@ class ToggleSwitch(QWidget):
                 offset = r*0.025
                 pt.drawEllipse(r+offset/2+self.anim.current() , 1+offset/2 , r-offset , r-offset)
 
-        elif self.style == "android":
+        elif self._style  == self.StylesEnum.android:
 
-            if self.on:
+            if self._on:
                 pen = QPen(self.onColor.lighter(145), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
                 pt.setPen(pen)
                 brush = QBrush(self.onColor.lighter(145))
@@ -251,8 +307,9 @@ class ToggleSwitch(QWidget):
         pt.setFont(font)
         pt.setPen(QPen(Qt.black))
 
-        pt.drawText(w+r*2+10, r//2+r//4, self.text)
+        pt.drawText(w+r*2+10, r//2+r//4, self._text)
 
         pt.end()
 
         if not self.anim.done(): self.update()
+
