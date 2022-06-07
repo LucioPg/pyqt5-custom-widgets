@@ -8,22 +8,44 @@ try:
     from animation import Animation, AnimationHandler
 except ModuleNotFoundError:
     from .animation import Animation, AnimationHandler
+from enum import Enum
+import pydevd_pycharm
+pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 
-# import pydevd_pycharm
-# pydevd_pycharm.settrace('localhost', port=53100, stdoutToServer=True, stderrToServer=True)
 
+class StylesEnum:
+    win10 = 0
+    ios = 1
+    android = 2
 
 
 class ToggleSwitch(QWidget):
-    class StylesEnum:
-        win10 = 0
-        ios = 1
-        android = 2
-        def get_attr_name(self, val):
-            for attr_name, attr_value in filter(lambda attr: not attr[0].startswith('_'), self.__dict__.items()):
-                if val == attr_value:
-                    return attr_name
 
+    class GeneralEnum:
+        __reference_class = StylesEnum
+
+        def __new__(cls, key_int):
+            for key, val in filter(lambda item: not item[0].startswith('_'), cls.__dict__.items()):
+                reference_val = getattr(cls.__reference_class, key)
+                if reference_val is not None and reference_val == key_int:
+                    return val
+            else:
+                raise Exception(f'the key {key_int} has not been found in {cls.__class__}')
+
+    class OnColorEnum(GeneralEnum):
+        win10 = QColor(0, 116, 208)
+        ios = QColor(73, 208, 96)
+        android = QColor(0, 150, 136)
+
+    class OffColorEnum(GeneralEnum):
+        win10 = QColor(0, 0, 0)
+        ios = QColor(250, 250, 250)
+        android = QColor(255, 255, 255)
+
+    class HandleColorEnum(GeneralEnum):
+        win10 = QColor(255, 255, 255)
+        ios = QColor(255, 255, 255)
+        android = QColor(255, 255, 255)
 
     Q_ENUMS(StylesEnum)
     defaultStyles = (StylesEnum.win10, StylesEnum.ios, StylesEnum.android)
@@ -32,30 +54,18 @@ class ToggleSwitch(QWidget):
     styleChanged = pyqtSignal(int)
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-
         self._text = ''
-
         self._on = False
-
         # TODO: find a better way for opacity
         self.opacity = QGraphicsOpacityEffect(self)
         self.opacity.setOpacity(1)
         self.setGraphicsEffect(self.opacity)
-        self._default_style = self.StylesEnum.ios #self.StylesEnum.win10
+        self._style = None
+        self._default_style = StylesEnum.ios #self.StylesEnum.win10
+        self.styleChanged.connect(self._apply_style)
         self._style = self.reset_style()
-        self._apply_style(self._style)
-
-
-
-        # self.setMinimumSize(self.width + (self.radius*2) + (len(self._text)*10), self.radius+2)
-
         self.anim = AnimationHandler(self, 0, self.width, Animation.easeOutCirc)
         if self._on: self.anim.value = 1
-
-
-
-
-
 
     @property
     def default_style(self):
@@ -65,9 +75,18 @@ class ToggleSwitch(QWidget):
     def default_style(self, style):
         return
 
+    # @property
+    # def onColor(self):
+    #     return self._onColor
+    #
+    # #onColor.setter
+    # def onColor(self, color_enum):
+    #     ...
+
+    @pyqtSlot(int)
     def _apply_style(self, style):
-        if style  == self.StylesEnum.win10:
-            self.onColor  = QColor(0, 116, 208)
+        if style  == StylesEnum.win10:
+            self.onColor  = self.OnColorEnum(StylesEnum.win10)
             self.offColor = QColor(0, 0, 0)
 
             self.handleAlpha = True
@@ -76,7 +95,7 @@ class ToggleSwitch(QWidget):
             self.width = 35
             self.radius = 26
 
-        elif style  == self.StylesEnum.ios:
+        elif style  == StylesEnum.ios:
             self.onColor  = QColor(73, 208, 96)
             self.offColor = QColor(250, 250, 250)
 
@@ -86,7 +105,7 @@ class ToggleSwitch(QWidget):
             self.width = 21
             self.radius = 29
 
-        elif style  == self.StylesEnum.android:
+        elif style  == StylesEnum.android:
             self.onColor  = QColor(0, 150, 136)
             self.offColor = QColor(255, 255, 255)
 
@@ -96,6 +115,7 @@ class ToggleSwitch(QWidget):
             self.width = 35
             self.radius = 26
         self.setMinimumSize(self.width + (self.radius * 2) + (len(self._text) * 10), self.radius + 2)
+        super(ToggleSwitch, self).update()
 
 
     def get_style(self):
@@ -107,12 +127,11 @@ class ToggleSwitch(QWidget):
             return
         if style not in ToggleSwitch.defaultStyles:
             raise Exception(f"'{style}' is not a default style.")
-        self._apply_style(style)
         self._style = style
         self.styleChanged.emit(style)
 
     def reset_style(self):
-        self._style = self.default_style
+        self.set_style(self.default_style)
         return self.default_style
 
 
@@ -188,7 +207,7 @@ class ToggleSwitch(QWidget):
         pt.begin(self)
         pt.setRenderHint(QPainter.Antialiasing)
 
-        if self._style  == self.StylesEnum.win10:
+        if self._style  == StylesEnum.win10:
 
             if self._on:
                 pen = QPen(self.onColor, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
@@ -226,7 +245,7 @@ class ToggleSwitch(QWidget):
                 offset = r*0.4
                 pt.drawEllipse(r+offset/2+self.anim.current() , offset/2+1 , r-offset , r-offset)
 
-        elif self._style  == self.StylesEnum.ios:
+        elif self._style  == StylesEnum.ios:
 
             if self._on:
                 pen = QPen(self.onColor, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
@@ -267,7 +286,7 @@ class ToggleSwitch(QWidget):
                 offset = r*0.025
                 pt.drawEllipse(r+offset/2+self.anim.current() , 1+offset/2 , r-offset , r-offset)
 
-        elif self._style  == self.StylesEnum.android:
+        elif self._style  == StylesEnum.android:
 
             if self._on:
                 pen = QPen(self.onColor.lighter(145), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
